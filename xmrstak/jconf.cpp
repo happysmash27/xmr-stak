@@ -357,62 +357,42 @@ const char* jconf::GetDefaultPool(const char* needle)
 
 bool jconf::parse_file(const char* sFilename, bool main_conf)
 {
-	FILE * pFile;
-	char * buffer;
-	size_t flen;
+	std::string buffer;
 
-	pFile = fopen(sFilename, "rb");
-	if (pFile == NULL)
-	{
-		printer::inst()->print_msg(L0, "Failed to open config file %s.", sFilename);
-		return false;
+	if (main_conf)
+    {
+        buffer = "{"
+                 "    \"tls_secure_algo\" : true,"
+                 "    \"call_timeout\" : 10,"
+                 "    \"call_timeout\" : 10,"
+                 "    \"retry_time\" : 30,"
+                 "    \"giveup_limit\" : 0,"
+                 "    \"verbose_level\" : 3,"
+                 "    \"print_motd\" : true,"
+                 "    \"h_print_time\" : 60,"
+                 "    \"aes_override\" : null,"
+                 "    \"use_slow_memory\" : \"warn\","
+                 "    \"tls_secure_algo\" : true,"
+                 "    \"daemon_mode\" : false,"
+                 "    \"flush_stdout\" : false,"
+                 "    \"output_file\" : \"\","
+                 "    \"httpd_port\" : 0,"
+                 "    \"http_login\" : \"\","
+                 "    \"http_pass\" : \"\","
+                 "    \"prefer_ipv4\" : true,"
+                 "}";
+    } else {
+        buffer = "{"
+                 "    \"pool_list\" : ["
+                 "{\"pool_address\" : \"\", \"wallet_address\" : \"\", \"rig_id\" : \"\", "
+                 "\"pool_password\" : \"\", \"use_nicehash\" : false, \"use_tls\" : false, "
+                 "\"tls_fingerprint\" : \"\", \"pool_weight\" : 1 },],"
+                 "    \"currency\" : \"monero7\""
+                 "}";
 	}
-
-	fseek(pFile,0,SEEK_END);
-	flen = ftell(pFile);
-	rewind(pFile);
-
-	if(flen >= 64*1024)
-	{
-		fclose(pFile);
-		printer::inst()->print_msg(L0, "Oversized config file - %s.", sFilename);
-		return false;
-	}
-
-	if(flen <= 16)
-	{
-		fclose(pFile);
-		printer::inst()->print_msg(L0, "File is empty or too short - %s.", sFilename);
-		return false;
-	}
-
-	buffer = (char*)malloc(flen + 3);
-	if(fread(buffer+1, flen, 1, pFile) != 1)
-	{
-		free(buffer);
-		fclose(pFile);
-		printer::inst()->print_msg(L0, "Read error while reading %s.", sFilename);
-		return false;
-	}
-	fclose(pFile);
-
-	//Replace Unicode BOM with spaces - we always use UTF-8
-	unsigned char* ubuffer = (unsigned char*)buffer;
-	if(ubuffer[1] == 0xEF && ubuffer[2] == 0xBB && ubuffer[3] == 0xBF)
-	{
-		buffer[1] = ' ';
-		buffer[2] = ' ';
-		buffer[3] = ' ';
-	}
-
-	buffer[0] = '{';
-	buffer[flen] = '}';
-	buffer[flen + 1] = '\0';
 
 	Document& root = main_conf ? prv->jsonDoc : prv->jsonDocPools;
-
-	root.Parse<kParseCommentsFlag|kParseTrailingCommasFlag>(buffer, flen+2);
-	free(buffer);
+	root.Parse<kParseCommentsFlag|kParseTrailingCommasFlag>(buffer.data(), buffer.length());
 
 	if(root.HasParseError())
 	{
@@ -512,7 +492,7 @@ bool jconf::parse_config(const char* sFilename, const char* sFilenamePools)
 	for(uint32_t i=0; i < pool_cnt; i++)
 	{
 		const Value& oThdConf = prv->configValues[aPoolList]->GetArray()[i];
-		
+
 		if(!oThdConf.IsObject())
 		{
 			printer::inst()->print_msg(L0, "Invalid config file. pool_list must contain objects.");
